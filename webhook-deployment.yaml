@@ -7,8 +7,8 @@ spec:
   selector:
     app: raven-url-webhook
   ports:
-    - port: 443
-      targetPort: 8443
+    - port: 80
+      targetPort: 8080
       protocol: TCP
 ---
 apiVersion: apps/v1
@@ -31,29 +31,25 @@ spec:
           image: your-registry/raven-url-webhook-spring:latest
           imagePullPolicy: Always
           ports:
-            - containerPort: 8443
-              name: https
+            - containerPort: 8080
+              name: http
               protocol: TCP
           env:
             - name: JAVA_OPTS
               value: "-Xmx256m -Xms128m"
-          volumeMounts:
-            - name: webhook-certs
-              mountPath: /etc/webhook/certs
-              readOnly: true
           livenessProbe:
             httpGet:
               path: /actuator/health/liveness
-              port: 8443
-              scheme: HTTPS
+              port: 8080
+              scheme: HTTP
             initialDelaySeconds: 30
             periodSeconds: 10
             timeoutSeconds: 5
           readinessProbe:
             httpGet:
               path: /actuator/health/readiness
-              port: 8443
-              scheme: HTTPS
+              port: 8080
+              scheme: HTTP
             initialDelaySeconds: 20
             periodSeconds: 5
             timeoutSeconds: 5
@@ -64,10 +60,3 @@ spec:
             requests:
               cpu: 200m
               memory: 256Mi
-      volumes:
-        - name: webhook-certs
-          secret:
-            secretName: raven-url-webhook-certs
-            items:
-              - key: keystore.p12
-                path: keystore.p12

@@ -9,7 +9,9 @@ webhooks:
         name: raven-url-webhook
         namespace: default
         path: "/mutate"
-      caBundle: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURQekNDQWllZ0F3SUJBZ0lVRXhhbXBsZUNBQnVuZGxlSGVyZTEyMzQ1Njc4OTBBd0RRWUpLb1pJaHZjTgpBUUVMQlFBd0x6RXRNQ3NHQTFVRUF3d2tVbUYyWlc0Z1ZWSk1JRWx1YW1WamRHOXlJRmRsWW1odmIyc2dRMEVnCi0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K
+        port: 80
+      # caBundle removed - not needed for insecure connections
+      # Note: Kubernetes may reject webhooks without TLS in production
     rules:
       - operations: ["CREATE", "UPDATE"]
         apiGroups: [""]
