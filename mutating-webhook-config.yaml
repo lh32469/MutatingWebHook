@@ -1,0 +1,28 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: raven-url-injector
+webhooks:
+  - name: inject-raven-url.example.com
+    clientConfig:
+      service:
+        name: raven-url-webhook
+        namespace: default
+        path: "/mutate"
+      caBundle: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURQekNDQWllZ0F3SUJBZ0lVRXhhbXBsZUNBQnVuZGxlSGVyZTEyMzQ1Njc4OTBBd0RRWUpLb1pJaHZjTgpBUUVMQlFBd0x6RXRNQ3NHQTFVRUF3d2tVbUYyWlc0Z1ZWSk1JRWx1YW1WamRHOXlJRmRsWW1odmIyc2dRMEVnCi0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K
+    rules:
+      - operations: ["CREATE", "UPDATE"]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+    admissionReviewVersions: ["v1", "v1beta1"]
+    sideEffects: None
+    timeoutSeconds: 5
+    reinvocationPolicy: Never
+    failurePolicy: Ignore
+    namespaceSelector:
+      matchExpressions:
+        - key: raven-url-injection
+          operator: NotIn
+          values:
+            - disabled
