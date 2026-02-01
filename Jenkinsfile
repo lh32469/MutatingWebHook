@@ -137,10 +137,10 @@ pipeline {
             }
 
             writeFile file: 'secrets-out.yml', text: secretsYml
-            sh "kubectl -n ${namespace} create -f secrets-out.yml"
+            sh "kubectl -n ${namespace} apply -f secrets-out.yml"
 
             writeFile file: 'k8s-out.yml', text: k8sYml
-            sh "kubectl -n ${namespace} create -f k8s-out.yml"
+            sh "kubectl -n ${namespace} apply -f k8s-out.yml"
 
             sh "kubectl -n webhooks apply -f mutating-webhook-config.yaml"
 
