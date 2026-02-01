@@ -5,9 +5,11 @@ spec:
     - name: maven
       image: maven:3.9-amazoncorretto-25
       command:
-        - sleep
-      args:
-        - infinity
+        - sh
+        - -c
+        - |
+          yum install -y git
+          sleep infinity
       volumeMounts:
         - mountPath: "/root/.m2"
           name: "maven-repo"
