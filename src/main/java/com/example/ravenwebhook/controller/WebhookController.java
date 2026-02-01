@@ -1,8 +1,10 @@
 package com.example.ravenwebhook.controller;
 
-import com.example.ravenwebhook.model.AdmissionReview;
 import com.example.ravenwebhook.service.PodMutationService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.kubernetes.client.admissionreview.models.AdmissionResponse;
+import io.kubernetes.client.admissionreview.models.AdmissionReview;
+import io.kubernetes.client.admissionreview.models.Status;
 import io.kubernetes.client.openapi.models.V1Pod;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -76,8 +78,7 @@ public class WebhookController {
       errorResponse.setApiVersion("admission.k8s.io/v1");
       errorResponse.setKind("AdmissionReview");
 
-      AdmissionReview.AdmissionResponse response =
-          new AdmissionReview.AdmissionResponse();
+      AdmissionResponse response = new AdmissionResponse();
 
       // Safely get UID
       String uid = "unknown";
@@ -86,11 +87,11 @@ public class WebhookController {
       }
       response.setUid(uid);
       response.setAllowed(false);
-      response.setStatus(new AdmissionReview.Status(
-          "Failure",
-          "Failed to process admission review: " + e.getMessage(),
-          500
-      ));
+
+      Status status = new Status();
+      status.setMessage("Failed to process admission review: " + e.getMessage());
+      status.setCode(500);
+      response.setStatus(status);
 
       errorResponse.setResponse(response);
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);

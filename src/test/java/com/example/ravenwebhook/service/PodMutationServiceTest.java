@@ -1,6 +1,7 @@
 package com.example.ravenwebhook.service;
 
-import com.example.ravenwebhook.model.AdmissionReview;
+import io.kubernetes.client.admissionreview.models.AdmissionReview;
+import io.kubernetes.client.admissionreview.models.AdmissionRequest;
 import com.example.ravenwebhook.model.PatchOperation;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -40,13 +41,13 @@ class PodMutationServiceTest {
         AdmissionReview response = mutationService.mutate(request, pod);
 
         // Verify response
-        assertTrue(response.getResponse().isAllowed());
+        assertTrue(response.getResponse().getAllowed());
         assertNotNull(response.getResponse().getPatch());
         assertEquals("JSONPatch", response.getResponse().getPatchType());
 
         // Decode and verify patches
-        String patchJson = new String(Base64.getDecoder().decode(response.getResponse().getPatch()));
-        List<PatchOperation> patches = objectMapper.readValue(patchJson, new TypeReference<>() {});
+        byte[] patchBytes = response.getResponse().getPatch();
+        List<PatchOperation> patches = objectMapper.readValue(patchBytes, new TypeReference<>() {});
 
         assertEquals(1, patches.size());
         assertEquals("add", patches.get(0).getOp());
@@ -69,8 +70,8 @@ class PodMutationServiceTest {
         AdmissionReview response = mutationService.mutate(request, pod);
 
         // Decode and verify patches
-        String patchJson = new String(Base64.getDecoder().decode(response.getResponse().getPatch()));
-        List<PatchOperation> patches = objectMapper.readValue(patchJson, new TypeReference<>() {});
+        byte[] patchBytes = response.getResponse().getPatch();
+        List<PatchOperation> patches = objectMapper.readValue(patchBytes, new TypeReference<>() {});
 
         assertEquals(1, patches.size());
         assertEquals("add", patches.get(0).getOp());
@@ -93,7 +94,7 @@ class PodMutationServiceTest {
         AdmissionReview response = mutationService.mutate(request, pod);
 
         // Verify no patches generated
-        assertTrue(response.getResponse().isAllowed());
+        assertTrue(response.getResponse().getAllowed());
         assertNull(response.getResponse().getPatch());
     }
 
@@ -115,8 +116,8 @@ class PodMutationServiceTest {
         AdmissionReview response = mutationService.mutate(request, pod);
 
         // Decode and verify patches
-        String patchJson = new String(Base64.getDecoder().decode(response.getResponse().getPatch()));
-        List<PatchOperation> patches = objectMapper.readValue(patchJson, new TypeReference<>() {});
+        byte[] patchBytes = response.getResponse().getPatch();
+        List<PatchOperation> patches = objectMapper.readValue(patchBytes, new TypeReference<>() {});
 
         // Should have 2 patches, one for each container
         assertEquals(2, patches.size());
@@ -142,8 +143,8 @@ class PodMutationServiceTest {
         AdmissionReview response = mutationService.mutate(request, pod);
 
         // Decode and verify patches
-        String patchJson = new String(Base64.getDecoder().decode(response.getResponse().getPatch()));
-        List<PatchOperation> patches = objectMapper.readValue(patchJson, new TypeReference<>() {});
+        byte[] patchBytes = response.getResponse().getPatch();
+        List<PatchOperation> patches = objectMapper.readValue(patchBytes, new TypeReference<>() {});
 
         // Should have 2 patches: one for init container, one for regular container
         assertEquals(2, patches.size());
@@ -163,7 +164,7 @@ class PodMutationServiceTest {
         review.setApiVersion("admission.k8s.io/v1");
         review.setKind("AdmissionReview");
 
-        AdmissionReview.AdmissionRequest request = new AdmissionReview.AdmissionRequest();
+        AdmissionRequest request = new AdmissionRequest();
         request.setUid("test-uid-123");
         request.setNamespace(pod.getMetadata().getNamespace());
         request.setName(pod.getMetadata().getName());

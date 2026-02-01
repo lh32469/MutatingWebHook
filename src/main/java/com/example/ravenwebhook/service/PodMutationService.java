@@ -1,6 +1,7 @@
 package com.example.ravenwebhook.service;
 
-import com.example.ravenwebhook.model.AdmissionReview;
+import io.kubernetes.client.admissionreview.models.AdmissionReview;
+import io.kubernetes.client.admissionreview.models.AdmissionResponse;
 import com.example.ravenwebhook.model.PatchOperation;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -34,15 +35,13 @@ public class PodMutationService {
     response.setApiVersion("admission.k8s.io/v1");
     response.setKind("AdmissionReview");
 
-    AdmissionReview.AdmissionResponse admissionResponse =
-        new AdmissionReview.AdmissionResponse();
+    AdmissionResponse admissionResponse = new AdmissionResponse();
     admissionResponse.setUid(admissionReview.getRequest().getUid());
     admissionResponse.setAllowed(true);
 
     if (!patches.isEmpty()) {
       String patchJson = objectMapper.writeValueAsString(patches);
-      admissionResponse.setPatch(Base64.getEncoder()
-                                       .encodeToString(patchJson.getBytes()));
+      admissionResponse.setPatch(patchJson.getBytes());
       admissionResponse.setPatchType("JSONPatch");
       logger.info("Generated {} patches for pod", patches.size());
     } else {
