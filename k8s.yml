@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: ${project}
+  name: ${project}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ${project}
+  strategy: { }
+  template:
+    metadata:
+      labels:
+        app: ${project}
+    spec:
+      containers:
+        - name: ${project}
+          image: localhost:32000/${project}:${branch}
+          imagePullPolicy: "Always"
+          resources:
+            requests:
+              cpu: "100m"
+          env:
+            - name: JASYPT_ENCRYPTOR_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: jasypt-secret
+                  key: password
+            - name: BRANCH
+              value: ${branch}
+            - name: SPRING_PROFILES_ACTIVE
+              value: k8s
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8090
+              httpHeaders:
+                - name: Custom-Header
+                  value: Awesome
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            failureThreshold: 8
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8090
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            failureThreshold: 4
+
+---
+
+kind: Service
+apiVersion: v1
+metadata:
+  name: ${project}
+  annotations:
+    prometheus.io/scrape: 'true'
+    prometheus.io/port: '8085'
+    prometheus.io/path: '/actuator/prometheus'
+spec:
+  selector:
+    app: ${project}
+  ports:
+    - port: 8085 # Default port for image
