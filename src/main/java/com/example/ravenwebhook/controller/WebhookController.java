@@ -26,6 +26,9 @@ public class WebhookController {
 
   @PostMapping("/mutate")
   public ResponseEntity<AdmissionReview> mutate(@RequestBody AdmissionReview admissionReview) {
+
+    System.out.println("admissionReview = " + admissionReview);
+
     try {
       logger.info("Received admission review for UID: {}",
                   admissionReview.getRequest().getUid());
