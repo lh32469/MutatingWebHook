@@ -7,9 +7,9 @@ webhooks:
     clientConfig:
       service:
         name: raven-url-webhook
-        namespace: default
+        namespace: mutatingwebhook-main
         path: "/mutate"
-        port: 80
+        port: 8085
       # caBundle removed - not needed for insecure connections
       # Note: Kubernetes may reject webhooks without TLS in production
     rules:
