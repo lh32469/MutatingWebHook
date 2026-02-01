@@ -1,351 +1,261 @@
-# Raven URL Mutating Webhook - Spring Boot Implementation
+# Raven URL Mutating Webhook
 
-This is a Spring Boot 3.5 (Java 25) implementation of a Kubernetes mutating webhook that automatically injects the environment variable `RAVEN_URLS=foo` into all containers in Kubernetes pods.
+A Kubernetes mutating webhook service built with Spring Boot that automatically injects the `RAVEN_URLS` environment variable into all containers in pods.
+
+## Overview
+
+This webhook intercepts pod creation/update requests in Kubernetes and adds a `RAVEN_URLS=foo` environment variable to all containers (including init containers) that don't already have it defined.
 
 ## Technology Stack
 
 - **Spring Boot**: 3.5.0-SNAPSHOT
-- **Java**: 25
+- **Java**: 25 (Amazon Corretto)
 - **Kubernetes Client**: 21.0.1
-- **Build Tool**: Maven
+- **Build Tool**: Maven 3.9+
+- **Container Runtime**: Docker
 
 ## Project Structure
 
 ```
-.
+MutatingWebHook/
 ├── src/
 │   ├── main/
 │   │   ├── java/com/example/ravenwebhook/
-│   │   │   ├── RavenWebhookApplication.java       # Main application class
+│   │   │   ├── RavenWebhookApplication.java      # Main Spring Boot application
 │   │   │   ├── controller/
-│   │   │   │   └── WebhookController.java         # REST controller for webhook endpoints
+│   │   │   │   └── WebhookController.java        # REST endpoint for webhook (/mutate)
 │   │   │   ├── model/
-│   │   │   │   ├── AdmissionReview.java           # Kubernetes AdmissionReview model
-│   │   │   │   └── PatchOperation.java            # JSON Patch operation model
+│   │   │   │   ├── AdmissionReview.java          # K8s AdmissionReview model
+│   │   │   │   └── PatchOperation.java           # JSON Patch operations
 │   │   │   └── service/
-│   │   │       └── PodMutationService.java        # Business logic for pod mutation
+│   │   │       └── PodMutationService.java       # Core mutation logic
 │   │   └── resources/
-│   │       └── application.yaml                   # Spring Boot configuration
+│   │       ├── application.yaml                  # Spring Boot config (SSL on 8085, actuator on 8090)
+│   │       └── keystore.p12                      # PKCS12 keystore for TLS
 │   └── test/
 │       └── java/com/example/ravenwebhook/
 │           └── service/
-│               └── PodMutationServiceTest.java    # Unit tests
+│               └── PodMutationServiceTest.java   # Unit tests
+├── Dockerfile                                     # Multi-stage build with Amazon Corretto 25
+├── Jenkinsfile                                    # CI/CD pipeline for deployment
+├── buildPod.yml                                   # Jenkins agent pod configuration
+├── k8s.yml                                        # Kubernetes deployment template
+├── mutating-webhook-config.yaml                  # MutatingWebhookConfiguration
+├── secrets.yml                                    # JASYPT secret template
 ├── pom.xml                                        # Maven build configuration
-├── Dockerfile-spring                              # Docker build file
-├── generate-certs-spring.sh                       # Certificate generation script
-├── webhook-deployment-spring.yaml                 # Kubernetes deployment manifest
-└── mutating-webhook-config.yaml                   # MutatingWebhookConfiguration
+└── README.md                                      # This file
 ```
 
-## Prerequisites
+## Key Components
 
-- JDK 25 (or JDK 21+ for compatibility)
-- Maven 3.9+
-- Docker
-- Kubernetes cluster (1.16+)
-- kubectl configured to access your cluster
-- openssl (for certificate generation)
+### Application Configuration
 
-## Building the Application
+**Ports:**
+- `8085`: Main webhook endpoint (HTTPS with TLS)
+- `8090`: Management/actuator endpoints (HTTP, no SSL)
 
-### Local Build
+**Endpoints:**
+- `POST /mutate` - Webhook mutation endpoint
+- `GET /health` - Simple health check
+- `GET /actuator/health/liveness` - Kubernetes liveness probe
+- `GET /actuator/health/readiness` - Kubernetes readiness probe
+
+### Mutation Logic
+
+The `PodMutationService` creates JSON Patch operations to inject environment variables:
+- Processes both regular containers and init containers
+- Skips containers that already have `RAVEN_URLS` defined
+- Creates the `env` array if it doesn't exist, or appends to existing array
+
+### Webhook Configuration
+
+The webhook is configured to:
+- Intercept `CREATE` and `UPDATE` operations on pods
+- Only apply to namespaces labeled with `inject-raven-url: enabled`
+- Use `failurePolicy: Ignore` (pod creation succeeds even if webhook fails)
+- Timeout after 5 seconds
+- Use TLS with provided CA bundle
+
+## Build & Deployment
+
+### Local Development
 
 ```bash
-# Build with Maven
+# Build the project
 mvn clean package
 
-# Run locally (requires keystore)
-java -jar target/raven-webhook-1.0.0.jar
-```
-
-### Docker Build
-
-```bash
-# Build the Docker image
-docker build -f Dockerfile-spring -t your-registry/raven-url-webhook-spring:latest .
-
-# Push to your registry
-docker push your-registry/raven-url-webhook-spring:latest
-```
-
-Update `webhook-deployment-spring.yaml` with your actual image registry.
-
-## Deployment Guide
-
-### 1. Generate TLS Certificates
-
-The webhook requires TLS certificates in PKCS12 format for Spring Boot:
-
-```bash
-chmod +x generate-certs-spring.sh
-./generate-certs-spring.sh
-```
-
-This script will:
-- Generate a CA certificate and server certificate
-- Convert certificates to PKCS12 keystore format
-- Create a Kubernetes secret with the certificates
-- Output the CA bundle for the webhook configuration
-
-### 2. Update the Webhook Configuration
-
-Copy the CA bundle output from the previous step and update the `caBundle` field in `mutating-webhook-config.yaml`:
-
-```yaml
-clientConfig:
-  caBundle: <PASTE_CA_BUNDLE_HERE>
-```
-
-### 3. Deploy the Webhook Server
-
-```bash
-# Deploy the webhook
-kubectl apply -f webhook-deployment-spring.yaml
-
-# Wait for the deployment to be ready
-kubectl wait --for=condition=available --timeout=120s deployment/raven-url-webhook
-
-# Check the logs
-kubectl logs -l app=raven-url-webhook -f
-```
-
-### 4. Install the MutatingWebhookConfiguration
-
-```bash
-kubectl apply -f mutating-webhook-config.yaml
-```
-
-## Testing
-
-### Run Unit Tests
-
-```bash
+# Run tests
 mvn test
+
+# Build Docker image
+docker build -t raven-webhook:latest .
 ```
 
-### Test the Webhook in Kubernetes
+### CI/CD Pipeline (Jenkins)
 
-Create a test pod to verify the webhook is working:
+The Jenkinsfile defines an automated pipeline with these stages:
+
+1. **Setup**: Configures project/branch names and generates K8s manifests from templates
+2. **Maven**: Builds the application (`mvn -B package`)
+3. **Docker**: Builds and pushes image to `registry.container-registry:5000`
+4. **Kubernetes**: Deploys to namespace `{project}-{branch}` and applies webhook config
+
+**Jenkins Build Environment:**
+- Maven 3.9 with Amazon Corretto 25
+- kubectl for K8s deployments
+- Docker client connecting to DinD service
+
+### Kubernetes Deployment
+
+The webhook runs as a deployment with:
+- 1 replica
+- 100m CPU request
+- Health probes on `/actuator/health/liveness` and `/actuator/health/readiness`
+- Service exposed on port 8085
+- Prometheus metrics scraping enabled
+
+**Environment variables:**
+- `JASYPT_ENCRYPTOR_PASSWORD`: Loaded from secret
+- `BRANCH`: Current branch name
+- `SPRING_PROFILES_ACTIVE`: Set to `k8s`
+- `POD_IP`: Pod's IP address
+
+## JVM Configuration
+
+The Dockerfile configures the JVM with:
+- **Garbage Collector**: Shenandoah GC with compact object headers
+- **Memory**: 2GB max heap (`-Xmx2g`)
+- **CPU**: 2 active processors
+- **Metaspace**: 25MB initial size with aggressive uncommit
+- **XML Processing**: Unlimited entity limits
+- **Timezone**: PST8PDT
+
+## Testing the Webhook
+
+### Create a Test Pod
 
 ```bash
+# Ensure namespace has the required label
+kubectl label namespace default inject-raven-url=enabled
+
 # Create a test pod
 kubectl run test-pod --image=nginx --restart=Never
 
-# Check if the environment variable was injected
+# Verify the environment variable was injected
 kubectl get pod test-pod -o jsonpath='{.spec.containers[0].env[?(@.name=="RAVEN_URLS")].value}'
-# Expected output: foo
-
-# Inspect the full environment variables
-kubectl get pod test-pod -o yaml | grep -A 5 "env:"
+# Expected: foo
 
 # Clean up
 kubectl delete pod test-pod
 ```
 
-### Health Check Endpoints
-
-The application exposes Spring Boot Actuator endpoints:
+### Health Checks
 
 ```bash
-# Health check
-curl -k https://raven-url-webhook.default.svc.cluster.local/health
+# Direct health check
+curl -k https://raven-url-webhook:8085/health
 
-# Actuator health endpoints
-curl -k https://raven-url-webhook.default.svc.cluster.local/actuator/health
-curl -k https://raven-url-webhook.default.svc.cluster.local/actuator/health/liveness
-curl -k https://raven-url-webhook.default.svc.cluster.local/actuator/health/readiness
+# Actuator endpoints
+curl http://raven-url-webhook:8090/actuator/health/liveness
+curl http://raven-url-webhook:8090/actuator/health/readiness
 ```
 
-## Configuration
+## Security
 
-### Application Properties
+- **TLS/SSL**: Required for webhook endpoint (port 8085)
+- **Keystore**: PKCS12 format with password `changeit`
+- **Non-root**: Application runs as non-root user
+- **Secrets**: JASYPT encryption for sensitive data
+- **Failure Policy**: Set to `Ignore` to prevent pod creation failures
 
-The webhook can be configured via `src/main/resources/application.yaml`:
+## Namespace Control
 
-```yaml
-server:
-  port: 8443                                      # HTTPS port
-  ssl:
-    enabled: true
-    key-store: file:/etc/webhook/certs/keystore.p12
-    key-store-password: changeit                  # Keystore password
-    key-store-type: PKCS12
-    key-alias: webhook
-
-logging:
-  level:
-    com.example.ravenwebhook: INFO                # Application logging level
-```
-
-### Environment Variables
-
-You can override configuration using environment variables:
-
-```yaml
-env:
-  - name: SERVER_PORT
-    value: "8443"
-  - name: LOGGING_LEVEL_COM_EXAMPLE_RAVENWEBHOOK
-    value: "DEBUG"
-  - name: SERVER_SSL_KEY_STORE_PASSWORD
-    valueFrom:
-      secretKeyRef:
-        name: raven-url-webhook-certs
-        key: keystore-password
-```
-
-### Modifying the Injected Environment Variable
-
-To change the injected environment variable, edit `PodMutationService.java`:
-
-```java
-private static final String ENV_VAR_NAME = "RAVEN_URLS";
-private static final String ENV_VAR_VALUE = "foo";  // Change this value
-```
-
-Then rebuild and redeploy:
-
+Enable webhook for a namespace:
 ```bash
-mvn clean package
-docker build -f Dockerfile-spring -t your-registry/raven-url-webhook-spring:latest .
-docker push your-registry/raven-url-webhook-spring:latest
-kubectl rollout restart deployment/raven-url-webhook
+kubectl label namespace <namespace-name> inject-raven-url=enabled
 ```
 
-## Namespace Selector
-
-The webhook is configured to inject the environment variable into all pods except those in namespaces labeled with `raven-url-injection=disabled`.
-
-To disable injection in a namespace:
-
+Disable webhook for a namespace:
 ```bash
-kubectl label namespace <namespace-name> raven-url-injection=disabled
-```
-
-To enable injection again:
-
-```bash
-kubectl label namespace <namespace-name> raven-url-injection-
+kubectl label namespace <namespace-name> inject-raven-url-
 ```
 
 ## Troubleshooting
 
-### Check Webhook Server Logs
-
-```bash
-kubectl logs -l app=raven-url-webhook -f
-```
-
-### Check Pod Status
-
-```bash
-kubectl get pods -l app=raven-url-webhook
-kubectl describe pod -l app=raven-url-webhook
-```
-
-### Verify Webhook Configuration
-
-```bash
-kubectl get mutatingwebhookconfiguration raven-url-injector -o yaml
-```
-
-### Test Webhook Endpoint Directly
-
-```bash
-# From within the cluster
-kubectl run -it --rm debug --image=curlimages/curl --restart=Never -- \
-  curl -k https://raven-url-webhook.default.svc:443/health
-```
-
 ### Common Issues
 
-**Issue: Pod fails to start with certificate errors**
-- Solution: Ensure the keystore is mounted correctly and the password matches
+**Issue: Exit code 143 (SIGTERM)**
+- This is a graceful shutdown signal, typically from timeout or deployment update
+- Check if liveness/readiness probes are timing out
+- Review the configured timeout values
+
+**Issue: SSL/TLS errors**
+- Verify keystore is mounted at `/etc/webhook/certs/keystore.p12`
+- Check keystore password matches configuration
+- Ensure CA bundle in webhook config is valid
 
 **Issue: Webhook not mutating pods**
-- Check webhook configuration is applied: `kubectl get mutatingwebhookconfiguration`
-- Verify the service is running: `kubectl get svc raven-url-webhook`
-- Check webhook logs for errors
+- Verify namespace has label `inject-raven-url: enabled`
+- Check webhook configuration: `kubectl get mutatingwebhookconfiguration raven-url-injector`
+- Review webhook logs: `kubectl logs -l app=${project} -f`
+- Verify service exists: `kubectl get svc mutatingwebhook -n mutatingwebhook-main`
 
-**Issue: Spring Boot version not available**
-- Spring Boot 3.5 is currently in snapshot/milestone phase
-- For production, use Spring Boot 3.4.x (latest stable) or 3.3.x
-- Update `pom.xml` to use a stable version:
-  ```xml
-  <version>3.4.0</version>
-  ```
-
-### Disable the Webhook Temporarily
+### Debugging Commands
 
 ```bash
-kubectl delete mutatingwebhookconfiguration raven-url-injector
+# Check webhook logs
+kubectl logs -n mutatingwebhook-main -l app=mutatingwebhook -f
+
+# Describe the webhook configuration
+kubectl describe mutatingwebhookconfiguration raven-url-injector
+
+# Check pod status
+kubectl get pods -n mutatingwebhook-main
+
+# Test actuator endpoints
+kubectl port-forward -n mutatingwebhook-main deployment/mutatingwebhook 8090:8090
+curl http://localhost:8090/actuator/health
 ```
 
-Re-enable:
+## Configuration
 
-```bash
-kubectl apply -f mutating-webhook-config.yaml
+### Modifying the Injected Variable
+
+To change the environment variable name or value, edit `PodMutationService.java`:
+
+```java
+private static final String ENV_VAR_NAME = "RAVEN_URLS";
+private static final String ENV_VAR_VALUE = "foo";  // Change this
 ```
 
-## Performance Considerations
+Then rebuild and redeploy through the Jenkins pipeline.
 
-- **Memory**: Spring Boot requires more memory than the Go implementation (256Mi-512Mi recommended)
-- **Startup Time**: Spring Boot has a slower startup time (~20-30 seconds)
-- **Resource Usage**: Consider adjusting JVM options for optimal performance:
-  ```yaml
-  env:
-    - name: JAVA_OPTS
-      value: "-Xmx256m -Xms128m -XX:+UseG1GC"
-  ```
+### Adjusting Resource Limits
 
-## Security Considerations
+Edit `k8s.yml` to modify:
+- CPU/memory requests and limits
+- Replica count
+- Health probe intervals
+- JVM heap size (in Dockerfile)
 
-- The webhook uses `failurePolicy: Ignore`, meaning pod creation will succeed even if the webhook fails
-- Certificates are valid for 10 years - consider implementing certificate rotation
-- The application runs as a non-root user for security
-- Consider using cert-manager for automated certificate management in production
-- Spring Boot Actuator endpoints are enabled - restrict access in production if needed
+## Monitoring
 
-## Development
-
-### Running Locally
-
-To run the webhook locally for development:
-
-1. Generate local certificates in PKCS12 format
-2. Update `application.yaml` to point to the local keystore
-3. Run the application:
-   ```bash
-   mvn spring-boot:run
-   ```
-
-### Adding New Features
-
-The modular structure makes it easy to extend:
-- Add new controllers in `controller/` package
-- Add business logic in `service/` package
-- Add models in `model/` package
-- Add tests in `src/test/java/`
-
-## Uninstallation
-
-```bash
-kubectl delete mutatingwebhookconfiguration raven-url-injector
-kubectl delete deployment raven-url-webhook
-kubectl delete service raven-url-webhook
-kubectl delete secret raven-url-webhook-certs
+The application exposes Prometheus metrics at:
+```
+http://mutatingwebhook:8085/actuator/prometheus
 ```
 
-## Migration from Go Implementation
-
-If you're migrating from the Go implementation:
-
-1. Both implementations use the same webhook configuration
-2. The Spring Boot version requires PKCS12 keystore instead of PEM certificates
-3. Use `generate-certs-spring.sh` instead of `generate-certs.sh`
-4. Deploy using `webhook-deployment-spring.yaml` instead of `webhook-deployment.yaml`
-5. The API and behavior are identical
+Metrics are automatically scraped based on service annotations.
 
 ## License
 
 This is example code for educational purposes.
+
+## Related Files
+
+- **Jenkinsfile**: Complete CI/CD pipeline automation
+- **buildPod.yml**: Jenkins build agent configuration
+- **mutating-webhook-config.yaml**: K8s webhook registration
+- **k8s.yml**: Deployment and service template
+- **secrets.yml**: JASYPT secret template
+- **Dockerfile**: Container build with optimized JVM settings
