@@ -31,6 +31,8 @@ pipeline {
       steps {
         container('maven') {
           script {
+            sh "env"
+            sh "git config --global --add safe.directory $WORKSPACE"
             origin = sh(
                 returnStdout: true,
                 script: "git remote get-url origin"
@@ -53,18 +55,13 @@ pipeline {
               host = "${branch}.${project}"
             }
 
-            // Injected from Jenkins Global properties
-            def raven_urls = env.RAVENDB_URLS
-            println "RavenDB URLS = " + raven_urls
             def domain = env.DNS_DOMAIN.toLowerCase()
             println "Domain = " + domain
-
 
             def binding = [
                 project: project,
                 branch : branch,
                 domain : domain,
-                raven_urls : raven_urls,
                 host   : host
             ]
 
@@ -137,7 +134,6 @@ pipeline {
               sh "kubectl -n ${namespace} rollout restart deployment/${project}"
             } else {
               sh "kubectl create namespace $namespace"
-              sh "kubectl label namespace $namespace inject-raven-url=enabled"
 
               writeFile file: 'secrets-out.yml', text: secretsYml
               sh "kubectl -n ${namespace} create -f secrets-out.yml"
