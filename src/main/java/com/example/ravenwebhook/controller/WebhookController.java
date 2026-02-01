@@ -8,7 +8,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 public class WebhookController {
@@ -25,11 +28,24 @@ public class WebhookController {
   }
 
   @PostMapping("/mutate")
-  public ResponseEntity<AdmissionReview> mutate(@RequestBody AdmissionReview admissionReview) {
+  public ResponseEntity<AdmissionReview> mutate(@RequestBody String rawBody) {
+    logger.info("Received raw request: {}", rawBody);
 
-    System.out.println("admissionReview = " + admissionReview);
-
+    AdmissionReview admissionReview = null;
     try {
+      // First, try to parse the admission review
+      admissionReview = objectMapper.readValue(rawBody, AdmissionReview.class);
+
+      logger.info("Parsed AdmissionReview: apiVersion={}, kind={}, request={}",
+                  admissionReview.getApiVersion(),
+                  admissionReview.getKind(),
+                  admissionReview.getRequest());
+
+      if (admissionReview.getRequest() == null) {
+        logger.error("AdmissionReview.request is null! Raw body was: {}", rawBody);
+        throw new IllegalArgumentException("AdmissionReview request is null");
+      }
+
       logger.info("Received admission review for UID: {}",
                   admissionReview.getRequest().getUid());
 
@@ -62,7 +78,13 @@ public class WebhookController {
 
       AdmissionReview.AdmissionResponse response =
           new AdmissionReview.AdmissionResponse();
-      response.setUid(admissionReview.getRequest().getUid());
+
+      // Safely get UID
+      String uid = "unknown";
+      if (admissionReview != null && admissionReview.getRequest() != null) {
+        uid = admissionReview.getRequest().getUid();
+      }
+      response.setUid(uid);
       response.setAllowed(false);
       response.setStatus(new AdmissionReview.Status(
           "Failure",
