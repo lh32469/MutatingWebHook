@@ -6,11 +6,12 @@ webhooks:
   - name: inject-raven-url.example.com
     clientConfig:
       service:
-        name: raven-url-webhook
+        name: mutatingwebhook
         namespace: mutatingwebhook-main
         path: "/mutate"
         port: 8085
-      # caBundle removed - not needed for insecure connections
+      # caBundle added to support HTTPS
+      caBundle: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURDakNDQWZLZ0F3SUJBZ0lKQU5NZ1paWkpVQ2EwTUEwR0NTcUdTSWIzRFFFQkRBVUFNRE14TVRBdkJnTlYKQkFNVEtHMTFkR0YwYVc1bmQyVmlhRzl2YXk1dGRYUmhkR2x1WjNkbFltaHZiMnN0YldGcGJpNXpkbU13SGhjTgpNall3TWpBeE1EVXhOelV5V2hjTk16WXdNVE13TURVeE56VXlXakF6TVRFd0x3WURWUVFERXlodGRYUmhkR2x1ClozZGxZbWh2YjJzdWJYVjBZWFJwYm1kM1pXSm9iMjlyTFcxaGFXNHVjM1pqTUlJQklqQU5CZ2txaGtpRzl3MEIKQVFFRkFBT0NBUThBTUlJQkNnS0NBUUVBNFpKbVhZRERIL2ZlUzUyclpCTmJ2ZGw5ODZ5TUg5K090aG5mV0MrTgpQTStBWVFZSGU4UmZJSDZDRmxKdng5dnVpdXo5bHZLdXhCN0dFOXk1TDQ3REwxaXlwYlVJcWhOdWV2RkIrNmYyClBaSUhZN1drdXFnWDRML2tBSW9JK3puZmRkTm9iaFVwZHRpaFdBamxZcFFRdEQwS1E3MENsU2l4d3lQVlZKRXUKMEpab0xDUnBjeGN2YUtrc0FhbVJmTUJ0dFBsUnZrOEZCRUtqbzRITmtvN3pPajdtWkpjS2hPMVJ3V3M5ZmZjTQp4TVN2ckttcjhCT05QblBSWGJBWHAwVE90TS9Cbms2aWxLbzc5ZjVoOEh4emFrb1ZRSWwzVHc3U3lCcWhveHVjClIzbzBlTS84K0ptbkhtTlJhOW0xLy9teW9ZenlvUVFqU0lqQlF5akZ3ZktmQXdJREFRQUJveUV3SHpBZEJnTlYKSFE0RUZnUVVlVzJjUStQN05jR0YxNFkyOHhna1BoSTFQYmd3RFFZSktvWklodmNOQVFFTUJRQURnZ0VCQUtFMwo0Y2IrVHRzNkZLT3dEM1I2MEVUWENTeDZtZGZNSmUyczJ1cERVR3pYS0NlSVN1U2ZJdnE1UE1MeFVXRCthZXpqCnl2eGgxTmFxMGkrNFNEblUrTHVCZ1FOOE0zUFB2YkY0Q2tWNWJOa1k4Zmxpcnk2MC9UZ05UejlDRGxSTmxaWVAKYUpRTWlpTEU2RXozbncwWUQ1U1BmK096emZHSzJldHZSdDVQdWdFZEJSWUpzdmVmZVptVUhuU283S0FRaWg0TwpDU1VINmZyNldoSEJiM3B3bGcyc2dCZFVMWEVEL2dIM3JzYzdsckEwSTJ5WDZpTk54VjdGRlpDTGdwTUpQSlJ6Cnk3UVlZS2FXaWlhYnF1V0l0eEhmNG1TdWU2eVB3ZTE5YTdTV2MzZjlFa05oamJmOGF2dm0rd1V6NHAxWWo5aTQKbVkydE5CekFDSElJdnpVdzBGUT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo=
       # Note: Kubernetes may reject webhooks without TLS in production
     rules:
       - operations: ["CREATE", "UPDATE"]
@@ -23,8 +24,5 @@ webhooks:
     reinvocationPolicy: Never
     failurePolicy: Ignore
     namespaceSelector:
-      matchExpressions:
-        - key: raven-url-injection
-          operator: NotIn
-          values:
-            - disabled
+      matchLabels:
+        inject-raven-url: enabled
