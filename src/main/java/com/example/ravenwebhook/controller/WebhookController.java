@@ -68,6 +68,8 @@ public class WebhookController {
                   pod.getMetadata().getNamespace(),
                   pod.getMetadata().getName());
 
+      logger.info(response.toString());
+
       return ResponseEntity.ok(response);
 
     } catch (Exception e) {
