@@ -35,7 +35,6 @@ pipeline {
       steps {
         container('maven25') {
           script {
-            sh "env"
             sh "git config --global --add safe.directory $WORKSPACE"
             origin = sh(
                 returnStdout: true,
@@ -103,8 +102,7 @@ pipeline {
         mavenBuild()
 
         // Build and push Docker image
-        tag = "${registry}/${project}:${branch}"
-        dockerBuild(tag, "Dockerfile.Java25")
+        dockerBuild("${registry}/${project}:${branch}", "Dockerfile.Java25")
 
       }
     }
