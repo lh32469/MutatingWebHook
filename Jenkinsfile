@@ -135,8 +135,10 @@ pipeline {
                script: "kubectl -n ${namespace} apply -f k8s-out.yml"
             )
 
+            println(result)
+
             if(result.contains("unchanged")) {
-              // Needs restart to pickup new image
+              println("Forced restart to pickup new image")
               sh "kubectl -n ${namespace} rollout restart deployment/${project}"
             }
 
