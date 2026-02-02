@@ -69,6 +69,10 @@ public class WebhookController {
                   pod.getMetadata().getName());
 
       logger.info(response.toString());
+      // Logs patch if present in mutation response
+      if (response.getResponse() != null && response.getResponse().getPatch() != null) {
+        logger.info(new String(response.getResponse().getPatch()));
+      }
 
       return ResponseEntity.ok(response);
 
