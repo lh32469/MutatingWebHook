@@ -121,7 +121,6 @@ pipeline {
 
             if (status == 0) {
               println "$namespace namespace exists"
-              sh "kubectl -n ${namespace} rollout restart deployment/${project}"
             } else {
               sh "kubectl create namespace $namespace"
             }
@@ -130,7 +129,16 @@ pipeline {
             sh "kubectl -n ${namespace} apply -f secrets-out.yml"
 
             writeFile file: 'k8s-out.yml', text: k8sYml
-            sh "kubectl -n ${namespace} apply -f k8s-out.yml"
+
+            result = sh(
+               returnStdout: true,
+               script: "kubectl -n ${namespace} apply -f k8s-out.yml"
+            )
+
+            if(result.contains("unchanged") {
+              // Needs restart to pickup new image
+              sh "kubectl -n ${namespace} rollout restart deployment/${project}"
+            }
 
             sh "kubectl -n webhooks apply -f mutating-webhook-config.yaml"
 
