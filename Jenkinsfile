@@ -99,8 +99,8 @@ pipeline {
     stage("Building") {
       steps {
 
-        // Build with Java 25
-        mavenBuild('maven25')
+        // Build Image Step
+        dockerBuild(tag)
 
       }
     }
