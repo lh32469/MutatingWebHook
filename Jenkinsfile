@@ -100,7 +100,7 @@ pipeline {
       steps {
 
         // Build Image Step
-        dockerBuild(tag)
+        dockerBuild("tag")
 
       }
     }
