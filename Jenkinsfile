@@ -1,3 +1,7 @@
+@Library('GitHub')
+
+def buildPodYml = libraryResource 'buildPodMaven.yml'
+
 def registry = "registry.container-registry:5000"
 def dockerHost = "tcp://dind.container-registry:2375"
 
@@ -21,7 +25,7 @@ pipeline {
 
   agent {
     kubernetes {
-      yamlFile 'buildPod.yml'
+      yaml buildPodYml
     }
   }
 
@@ -29,7 +33,7 @@ pipeline {
 
     stage('Setup') {
       steps {
-        container('maven') {
+        container('maven25') {
           script {
             sh "env"
             sh "git config --global --add safe.directory $WORKSPACE"
