@@ -96,13 +96,8 @@ pipeline {
       }
     }
 
-    stage('Maven') {
-      steps {
-        container('maven') {
-          sh 'mvn -B package'
-        }
-      }
-    }
+    // Build with Java 25
+    mavenBuild('maven25')
 
     stage('Docker') {
       steps {
