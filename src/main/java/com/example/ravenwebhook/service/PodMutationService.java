@@ -89,12 +89,17 @@ public class PodMutationService {
         .name(ENV_VAR_NAME)
         .value(ENV_VAR_VALUE);
 
+    V1EnvVar fooEnv = new V1EnvVar()
+        .name("FOO")
+        .value("Bar");
+
     String basePath = String.format("/spec/%s/%d/env", containerType, index);
 
     if (container.getEnv() == null || container.getEnv().isEmpty()) {
       // Create the env array with the new variable
       List<V1EnvVar> envVars = new ArrayList<>();
       envVars.add(ravenEnv);
+      envVars.add(fooEnv);
       patches.add(new PatchOperation("add", basePath, envVars));
       logger.debug("Creating env array for container {}", container.getName());
     } else {
