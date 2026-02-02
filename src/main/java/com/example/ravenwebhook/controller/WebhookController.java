@@ -18,6 +18,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class WebhookController {
 
+  static final ObjectMapper MAPPER = new ObjectMapper();
+
   private static final Logger logger = LoggerFactory.getLogger(WebhookController.class);
 
   private final PodMutationService mutationService;
@@ -68,12 +70,14 @@ public class WebhookController {
                   pod.getMetadata().getNamespace(),
                   pod.getMetadata().getName());
 
+
       logger.info(response.toString());
       // Logs patch if present in mutation response
       if (response.getResponse() != null && response.getResponse().getPatch() != null) {
         logger.info(new String(response.getResponse().getPatch()));
       }
 
+      logger.info(MAPPER.writeValueAsString(response));
       return ResponseEntity.ok(response);
 
     } catch (Exception e) {
