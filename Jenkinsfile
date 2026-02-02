@@ -96,8 +96,12 @@ pipeline {
       }
     }
 
-    // Build with Java 25
-    mavenBuild('maven25')
+    stage("Building") {
+
+      // Build with Java 25
+      mavenBuild('maven25')
+
+    }
 
     stage('Docker') {
       steps {
