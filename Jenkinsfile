@@ -100,25 +100,12 @@ pipeline {
       steps {
 
         // Build Image Step
-        testScript()
+        mavenBuild()
 
-      }
-    }
+        // Build and push Docker image
+        tag = "${registry}/${project}:${branch}"
+        dockerBuild(tag, "Dockerfile.Java25")
 
-    stage('Docker') {
-      steps {
-        container('docker') {
-          sh 'docker -v'
-          sh "docker build -t ${registry}/${project}:${branch} \
-              --build-arg PROFILE=jenkins,${branch} \
-              --label job.name=$JOB_NAME ."
-          sh "docker push ${registry}/${project}:${branch}"
-          sh 'docker image ls'
-          // Cleanup image(s) once pushed
-          sh "docker image prune -af \
-              --filter label=job.name=$JOB_NAME"
-          sh 'docker image ls'
-        }
       }
     }
 
@@ -145,7 +132,7 @@ pipeline {
             sh "kubectl -n ${namespace} apply -f secrets-out.yml"
 
             writeFile file: 'k8s-out.yml', text: k8sYml
-            sh "kubectl -n ${namespace} apply -f k8s-out.yml"
+            sh "kubectl -n ${namespace} apply -f k8s-out.yml; echo $?"
 
             sh "kubectl -n webhooks apply -f mutating-webhook-config.yaml"
 
