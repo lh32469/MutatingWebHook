@@ -1,4 +1,4 @@
-@Library('GitHub')
+@Library('GitHub') _
 
 def buildPodYml = libraryResource 'buildPodMaven.yml'
 
