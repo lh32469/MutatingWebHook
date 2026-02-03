@@ -48,26 +48,6 @@ pipeline {
             branch = env.BRANCH_NAME.toLowerCase()
             println "Project/Branch = " + project + "/" + branch
 
-            def file = readFile "k8s.yml"
-
-            if (branch == "master") {
-              host = project
-            } else if (branch == "main") {
-              host = project
-            } else {
-              host = "${branch}.${project}"
-            }
-
-            def domain = env.DNS_DOMAIN.toLowerCase()
-            println "Domain = " + domain
-
-            def binding = [
-                project: project,
-                branch : branch,
-                domain : domain,
-                host   : host
-            ]
-
             def engine = new groovy.text.SimpleTemplateEngine()
             def template = engine.createTemplate(file).make(binding)
 
@@ -107,50 +87,16 @@ pipeline {
       }
     }
 
-    stage('Kubernetes') {
+    stage("Deploy") {
       steps {
-        container('kubectl') {
 
-          script {
-            def namespace = "${project}-${branch}" as String
+        // Deploy application
+        deployment(project, branch)
 
-            status = sh(
-                returnStatus: true,
-                script: "kubectl get namespace $namespace"
-            )
-
-            if (status == 0) {
-              println "$namespace namespace exists"
-            } else {
-              sh "kubectl create namespace $namespace"
-            }
-
-            writeFile file: 'secrets-out.yml', text: secretsYml
-            sh "kubectl -n ${namespace} apply -f secrets-out.yml"
-
-            writeFile file: 'k8s-out.yml', text: k8sYml
-
-            result = sh(
-               returnStdout: true,
-               script: "kubectl -n ${namespace} apply -f k8s-out.yml"
-            )
-
-            println(result)
-
-            if(result.contains("unchanged")) {
-              println("Forced restart to pickup new image")
-              sh "kubectl -n ${namespace} rollout restart deployment/${project}"
-            }
-
-            sh "kubectl -n webhooks apply -f mutating-webhook-config.yaml"
-
-          }
-        }
+        sh "kubectl -n webhooks apply -f mutating-webhook-config.yaml"
       }
     }
 
   }
-
-
 }
 
