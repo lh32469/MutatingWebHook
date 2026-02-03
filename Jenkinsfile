@@ -48,29 +48,7 @@ pipeline {
             branch = env.BRANCH_NAME.toLowerCase()
             println "Project/Branch = " + project + "/" + branch
 
-            def engine = new groovy.text.SimpleTemplateEngine()
-            def template = engine.createTemplate(file).make(binding)
-
-            k8sYml = template.toString()
           }
-
-          script {
-            // Need separate script because of SimpleTemplateEngine
-            // NotSerializableException
-            def secretsFile = readFile "secrets.yml"
-
-            withCredentials([string(credentialsId: 'JASYPT-b28dca2e', variable: 'SECRET')]) {
-
-              def binding = [
-                  secret: SECRET
-              ]
-
-              def engine = new groovy.text.SimpleTemplateEngine()
-              def template = engine.createTemplate(secretsFile).make(binding)
-              secretsYml = template.toString()
-            }
-          }
-
         }
       }
     }
