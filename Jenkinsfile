@@ -69,7 +69,7 @@ pipeline {
       steps {
 
         // Deploy application
-        deployment(project, branch)
+        deploy(project, branch)
 
         sh "kubectl -n webhooks apply -f mutating-webhook-config.yaml"
       }
