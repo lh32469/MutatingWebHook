@@ -1,15 +1,10 @@
 @Library('GitHub') _
 
-def buildPodYml = libraryResource 'buildPodMaven.yml'
-
+def buildPodYml = libraryResource 'buildPodMaven25.yml'
 def registry = "registry.container-registry:5000"
-def dockerHost = "tcp://dind.container-registry:2375"
 
 project = ""
 branch = ""
-secretsYml = ""
-github_HTTPS = "https://github.com/lh32469/"
-github_SSH = "git@github.com:lh32469"
 
 pipeline {
 
@@ -31,33 +26,14 @@ pipeline {
 
   stages {
 
-    stage('Setup') {
-      steps {
-        container('maven25') {
-          script {
-            sh "git config --global --add safe.directory $WORKSPACE"
-            origin = sh(
-                returnStdout: true,
-                script: "git remote get-url origin"
-            )
-            project = origin.trim()
-                .toLowerCase()
-                .replaceAll(github_HTTPS, "")
-                .replaceAll(github_SSH, "")
-                .replaceAll(".git", "")
-            branch = env.BRANCH_NAME.toLowerCase()
-            println "Project/Branch = " + project + "/" + branch
-
-          }
-        }
-      }
-    }
-
     stage("Building") {
       steps {
 
         // Build Image Step
         mavenBuild()
+
+        def project = getProject()
+        println "Project = " + project
 
         // Build and push Docker image
         dockerBuild("${registry}/${project}:${branch}", "Dockerfile.Java25")
