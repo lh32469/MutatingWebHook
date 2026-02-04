@@ -32,8 +32,11 @@ pipeline {
         // Build Image Step
         mavenBuild()
 
-        def project = getProject()
-        println "Project = " + project
+        script {
+          branch = env.BRANCH_NAME.toLowerCase()
+          project = getProject()
+          println "Project/Branch = " + project + "/" + branch
+        }
 
         // Build and push Docker image
         dockerBuild("${registry}/${project}:${branch}", "Dockerfile.Java25")
